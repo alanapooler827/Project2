@@ -25,7 +25,7 @@ Read in and view data
 
 ```{r}
 df <- read_csv('Data/Melbourne_housing_FULL.csv', na = ('#N/A'))
-df
+head(df)
 ```
 
 Check for missing values
@@ -218,7 +218,7 @@ df |>
 
 Histogram of home prices, with and without outliers
 
-Before removing properties with prices above 4M AUD, it is difficult to see the distribution. After removing these properties, we can see that most of the prices are between 500k-1M. 
+Before removing properties with prices above 4M AUD, it is difficult to see the distribution. After removing these properties, we can see that most of the prices are between 500k-1M.
 
 ```{r}
 ggplot(df, aes(x = Price)) +
@@ -249,8 +249,10 @@ ggplot(df, aes(x = PriceRange)) +
        title = 'Number of Properties by Price Range')
 ```
 
-Line plot of average Price vs Year Built
-Home prices 
+Line plot of average Price vs Year Built Home prices (last 50 years)
+
+This relationship is very volatile, with a lot of peaks and dips. We see the greatest peak average in price in homes built in 2016, and the lowest average price in homes built in 1986.
+
 ```{r}
 df |>
   filter(YearBuilt >= 1975) |>
@@ -264,20 +266,26 @@ df |>
        title = 'Year Built vs Average Property Price')
 ```
 
-Price Range by Year Sold
-2017 had the largest number of homes sold across all price ranges and 2018 had the least. In the contingency table we saw a drop in average property price after 2016, so number of properties sold spiking in 2017 makes sense- more people are going to jump to buy homes if prices drop. 
+Average sale price by Year Built and Year Sold
 
-We only have data for date sold up to march of 2018, so we can't get a fully accurate comparison between all 3 years since we only have the first few months of 2018.
 ```{r}
-ggplot(df, aes(x = PriceRange, fill = YearSold)) +
-  geom_bar(position = 'dodge') +
-  scale_fill_brewer(palette = 'Paired') +
-  labs(x = 'Price Range',
-       title = 'Price Range by Year Sold')
+df |>
+  filter(YearBuilt >= 1975) |>
+  group_by(YearBuilt, YearSold) |>
+  summarize(mean_price = mean(Price)) |>
+  ggplot(aes(x = YearBuilt, y = mean_price)) +
+  geom_line(color = 'deepskyblue4') +
+  geom_point(color = 'deepskyblue3') +
+  facet_wrap(~ YearSold, nrow = 3) +
+  labs(x = 'Year Built',
+       y = 'Average Property Price',
+       title = 'Year Built vs Average Property Price')
 ```
 
 Average Price by Region
+
 This graph confirms what we saw in the contingency table, with metro areas being more expensive than areas in Victoria, and Southern Metropolitan being the most expensive of all regions by far.
+
 ```{r}
 df |> group_by(Regionname) |>
   summarize(mean_price = mean(Price)) |>
@@ -286,6 +294,20 @@ df |> group_by(Regionname) |>
   labs(x = 'Average Property Price',
        y = 'Region',
        title = 'Average Property Price by Region')
+```
+
+Faceted plot: Price Range by Year Sold Across all 3 years, most property prices were between 600k-1.5M. 2017 had the largest number of homes sold across all price ranges and 2018 had the least. In the contingency table we saw a drop in average property price after 2016, so number of properties sold spiking in 2017 makes sense- more people are going to jump to buy homes if prices drop.
+
+We only have data for date sold up to march of 2018, so we can't get a fully accurate comparison between all 3 years since we only have the first few months of 2018.
+
+```{r}
+ggplot(df, aes(x = PriceRange)) +
+  geom_bar(fill = 'deepskyblue4') +
+  facet_wrap(~ YearSold, nrow = 3) +
+  labs(x = 'Price Range',
+       y = 'Count',
+       title = 'Property Price by Year Sold') +
+  theme_minimal()
 ```
 
 Correlation matrix
@@ -300,8 +322,8 @@ df |>
   cor(use = 'complete.obs')
 ```
 
-Map of properties, colored by region
-I'm not familiar with Melbourne, so this is helpful to understand what the regions are.
+Map of properties, colored by region I'm not familiar with Melbourne, so this is helpful to understand what the regions are.
+
 ```{r}
 ggplot(df_map, aes(x = Longtitude, y = Lattitude)) +
   geom_point(aes(color = Regionname),
@@ -312,6 +334,7 @@ ggplot(df_map, aes(x = Longtitude, y = Lattitude)) +
 ```
 
 Map of property prices with prices over 4M removed for better visualization.
+
 ```{r}
 df |>
   filter(Price < 4000000) |>
@@ -326,4 +349,3 @@ df |>
   coord_map() +
   theme_light()
 ```
-
