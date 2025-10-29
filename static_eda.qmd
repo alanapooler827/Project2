@@ -238,17 +238,6 @@ df |>
   labs(x = 'Home Price',
        title = 'Distribution of Home Prices')
 ```
-
-Bar chart of property count by Price Range
-
-```{r}
-ggplot(df, aes(x = PriceRange)) +
-  geom_bar(fill = 'deepskyblue4') +
-  labs(x = 'Price Range',
-       y = 'Count',
-       title = 'Number of Properties by Price Range')
-```
-
 Line plot of average Price vs Year Built Home prices (last 50 years)
 
 This relationship is very volatile, with a lot of peaks and dips. We see the greatest peak average in price in homes built in 2016, and the lowest average price in homes built in 1986.
