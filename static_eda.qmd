@@ -10,6 +10,7 @@ editor: visual
 Import packages
 
 ```{r}
+#| warning: false
 library(ggplot2)
 library(tidyverse)
 library(RColorBrewer)
@@ -28,6 +29,8 @@ df
 ```
 
 Check for missing values
+
+Land size, Building Area, and Year Built have many missing values
 
 ```{r}
 sum_na <- function(column){
@@ -81,9 +84,9 @@ df <- df |>
 
 ## Numerical Summaries
 
-This data does not have many variables that have small enough ranges to be ideal for a contingency table, unless we create binned variables. So, let's create some binned variables.
+This data does not have many variables that have small enough ranges to be ideal for a contingency table, unless we create binned variables. So, let's create a binned variable for property price.
 
-First, look at measures of spread for home prices to get an idea of what the bins should be. Mean price is larger than median price, indicating that this variable is skewed right.
+First, look at measures of spread for home prices to get an idea of what the bins should be. Mean price is larger than median price, indicating that this variable is skewed right and we should use smaller ranges on the lower end than the higher end.
 
 ```{r}
 df |>
@@ -101,8 +104,8 @@ Create Price Range variable
 df$PriceRange <- cut(
   df$Price,
   breaks = c(0, 300000, 600000, 900000, 1500000, 2500000, Inf),
-  labels = c("0-300K", "300K-600K", "600K-900K",
-             "900K-1.5M", "1.5M-2.5M", ">2.5M"),
+  labels = c('0-300K', '300K-600K', '600K-900K',
+             '900K-1.5M', '1.5M-2.5M', '>2.5M'),
   right = FALSE
 )
 ```
@@ -130,7 +133,7 @@ df |>
   pivot_wider(names_from = Type, values_from = count)
 ```
 
-Property Price by Region: The metropolitan areas have the widest ranges of home prices, whereas there are several price ranges with no properties in Victoria. The southern metropolitan area looks to be the most expensive region.
+Property Price by Region: The metropolitan areas have the widest ranges of home prices, whereas there are several price ranges on the higher end with no properties in Victoria. The southern metropolitan area looks to be the most expensive region.
 
 ```{r}
 df |>
@@ -148,33 +151,33 @@ Based on the mean and median, Building Area is slightly skewed right. Values of 
 ```{r}
 df |>
   summarize(across(c('BuildingArea'), 
-                   list("mean" = mean, "median" = median, 'max' = max, 'min' = min), 
-                   .names = "{.fn}_{.col}"))
+                   list('mean' = mean, 'median' = median, 'max' = max, 'min' = min), 
+                   .names = '{.fn}_{.col}'))
 ```
 
 Measures of spread: Land Size
 
-Like the building area variable, this variable is slightly skewed right. The maximum looks like it could be an outlier.
+Like the building area variable, this variable is slightly skewed right. The maximum value looks like it could be an outlier.
 
 ```{r}
 df |>
   summarize(across(c('Landsize'), 
-                   list("mean" = mean, "median" = median, 'max' = max, 'min' = min), 
-                   .names = "{.fn}_{.col}"))
+                   list('mean' = mean, 'median' = median, 'max' = max, 'min' = min), 
+                   .names = '{.fn}_{.col}'))
 ```
 
-Average and median property price by year built over the last 50 years
+Average and median property price by year built over the last 50 years:
 
 ```{r}
 df |>
   filter(YearBuilt >= 1975) |>
   group_by(YearBuilt) |>
   summarize(across(c(Price), 
-                   list("mean" = mean, "median" = median), 
-                   .names = "{.fn}_{.col}"))
+                   list('mean' = mean, 'median' = median), 
+                   .names = '{.fn}_{.col}'))
 ```
 
-Average and median property price by year sold over the last 50 years
+Average and median property price by year sold
 
 We only have 3 years of data to look at, but property prices have stayed fairly consistent aside from a slight decrease after 2016.
 
@@ -182,8 +185,8 @@ We only have 3 years of data to look at, but property prices have stayed fairly 
 df |>
   group_by(YearSold) |>
   summarize(across(c(Price), 
-                   list("mean" = mean, "median" = median), 
-                   .names = "{.fn}_{.col}"))
+                   list('mean' = mean, 'median' = median), 
+                   .names = '{.fn}_{.col}'))
 ```
 
 Average and median property price by Region
@@ -194,8 +197,8 @@ This summary corroborates what we saw in the contigency table of home prices by 
 df |>
   group_by(Regionname) |>
   summarize(across(c(Price), 
-                   list("mean" = mean, "median" = median), 
-                   .names = "{.fn}_{.col}"))
+                   list('mean' = mean, 'median' = median), 
+                   .names = '{.fn}_{.col}'))
 ```
 
 Average and median Building Area and Land Size by Price Range
@@ -213,7 +216,9 @@ df |>
 
 ## Graphical Summaries
 
-Histogram of home prices, with and without outliers & Bar chart of price range
+Histogram of home prices, with and without outliers
+
+Before removing properties with prices above 4M AUD, it is difficult to see the distribution. After removing these properties, we can see that most of the prices are between 500k-1M. 
 
 ```{r}
 ggplot(df, aes(x = Price)) +
@@ -232,16 +237,20 @@ df |>
                  color = 'white') +
   labs(x = 'Home Price',
        title = 'Distribution of Home Prices')
+```
 
+Bar chart of property count by Price Range
+
+```{r}
 ggplot(df, aes(x = PriceRange)) +
-  geom_bar(fill = "deepskyblue4") +
+  geom_bar(fill = 'deepskyblue4') +
   labs(x = 'Price Range',
        y = 'Count',
        title = 'Number of Properties by Price Range')
 ```
 
 Line plot of average Price vs Year Built
-
+Home prices 
 ```{r}
 df |>
   filter(YearBuilt >= 1975) |>
@@ -256,7 +265,9 @@ df |>
 ```
 
 Price Range by Year Sold
+2017 had the largest number of homes sold across all price ranges and 2018 had the least. In the contingency table we saw a drop in average property price after 2016, so number of properties sold spiking in 2017 makes sense- more people are going to jump to buy homes if prices drop. 
 
+We only have data for date sold up to march of 2018, so we can't get a fully accurate comparison between all 3 years since we only have the first few months of 2018.
 ```{r}
 ggplot(df, aes(x = PriceRange, fill = YearSold)) +
   geom_bar(position = 'dodge') +
@@ -266,12 +277,12 @@ ggplot(df, aes(x = PriceRange, fill = YearSold)) +
 ```
 
 Average Price by Region
-
+This graph confirms what we saw in the contingency table, with metro areas being more expensive than areas in Victoria, and Southern Metropolitan being the most expensive of all regions by far.
 ```{r}
 df |> group_by(Regionname) |>
   summarize(mean_price = mean(Price)) |>
   ggplot(aes(x = mean_price, y = Regionname)) +
-  geom_col(fill = "steelblue") +
+  geom_col(fill = 'steelblue') +
   labs(x = 'Average Property Price',
        y = 'Region',
        title = 'Average Property Price by Region')
@@ -286,5 +297,33 @@ Distance and Year Built have negative correlations with Price, meaning that as y
 ```{r}
 df |>
   select(Price, Landsize, BuildingArea, Rooms, Distance, YearBuilt) |>
-  cor(use = "complete.obs")
+  cor(use = 'complete.obs')
 ```
+
+Map of properties, colored by region
+I'm not familiar with Melbourne, so this is helpful to understand what the regions are.
+```{r}
+ggplot(df_map, aes(x = Longtitude, y = Lattitude)) +
+  geom_point(aes(color = Regionname),
+             size = 0.8) + 
+  # change legend title
+  labs(color = 'Region') + 
+  coord_map()
+```
+
+Map of property prices with prices over 4M removed for better visualization.
+```{r}
+df |>
+  filter(Price < 4000000) |>
+  filter(!is.na(Longtitude) & !is.na(Lattitude)) |>
+  ggplot(aes(x = Longtitude, y = Lattitude)) +
+  geom_point(aes(color = Price),
+             size = 0.8) + 
+  # change legend title
+  labs(color = 'Sale Price') + 
+  # change color gradient
+  scale_color_gradient(low = '#f1eef6', high = '#0570b0') +
+  coord_map() +
+  theme_light()
+```
+
