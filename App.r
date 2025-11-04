@@ -95,6 +95,27 @@ ui <- fluidPage(
                               inline = TRUE),
                  uiOutput('explore_ui'),
                  
+                 # add options for grouping
+                 conditionalPanel(
+                   "input.summary_type == 'Numeric Summaries'",
+                   selectizeInput('group_var_num', 'Group by (categorical variable):',
+                                  choices = c("None", names(df[sapply(df, is.factor)])),
+                                  selected = "None"),
+                   selectizeInput('facet_var_num', 'Facet by (categorical variable):',
+                                  choices = c("None", names(df[sapply(df, is.factor)])),
+                                  selected = "None")
+                 ),
+                 
+                 conditionalPanel(
+                   "input.summary_type == 'Categorical Summaries'",
+                   selectizeInput('num_for_cat', 'Choose numeric variable (for graph):',
+                                  choices = c("None", names(df[sapply(df, is.numeric)])),
+                                  selected = "None"),
+                   selectizeInput('second_cat', 'Second categorical variable (for contingency table):',
+                                  choices = c("None", names(df[sapply(df, is.factor)])),
+                                  selected = "None")
+                 ),
+                 
                  # sub tabs for graphical and numerical summaries
                  tabsetPanel(
                    tabPanel("Graphical Summary",
@@ -218,19 +239,51 @@ server <- function(input, output, session) {
       need(!is.null(rv$subset_data), "Please subset the data and click 'Apply filters' using the sidebar.")
     )
     
-    # Create histogram for numeric variables
     if (input$summary_type == "Numeric Summaries") {
-      ggplot(rv$subset_data, aes(x = .data[[input$num_var_summary]])) +
-        geom_histogram(bins = 30,
-                       fill = 'deepskyblue4',
-                       color = "white") +
-        theme_minimal()
-    # create bar chart for categorical variables
+      num_var <- input$num_var_summary
+      group_var <- input$group_var_num
+      facet_var <- input$facet_var_num
+      
+      p <- ggplot(rv$subset_data, aes(x = .data[[num_var]]))
+      
+      # If grouped, color by category
+      if (group_var != "None") {
+        p <- p + geom_histogram(aes(fill = .data[[group_var]]), position = "identity", alpha = 0.6)
+      } else {
+        p <- p + geom_histogram(fill = 'deepskyblue4', color = "white")
+      }
+      
+      # add facet wrap if faceted
+      if (facet_var != "None") {
+        p <- p + facet_wrap(vars(.data[[facet_var]]))
+      }
+      
+      p + theme_minimal()
+      
+      # create bar charts for categorical variables
     } else {
-      ggplot(rv$subset_data, aes(x = .data[[input$cat_var]])) +
-        geom_bar(fill = 'deepskyblue4') +
-        coord_flip() +
-        theme_minimal()
+      cat_var <- input$cat_var
+      num_var <- input$num_for_cat
+      
+      # Validate numeric variable for bar chart
+      if (num_var == "None") {
+        ggplot(rv$subset_data, aes(x = .data[[cat_var]])) +
+          geom_bar(fill = 'deepskyblue4') +
+          coord_flip() +
+          theme_minimal()
+      } else {
+        # Compute mean numeric value per category
+        summary_df <- rv$subset_data |>
+          group_by(.data[[cat_var]]) |>
+          summarize(Mean_Value = mean(.data[[num_var]], na.rm = TRUE),
+                    .groups = "drop")
+        
+        ggplot(summary_df, aes(x = .data[[cat_var]], y = Mean_Value)) +
+          geom_col(fill = 'deepskyblue4') +
+          coord_flip() +
+          theme_minimal() +
+          labs(y = paste("Mean", num_var))
+     }
     }
   })
   
@@ -240,18 +293,44 @@ server <- function(input, output, session) {
       need(!is.null(rv$subset_data), 
            "Please subset the data and click 'Apply filters' using the sidebar.")
     )
+    
+    # create 5 number summary if numeric summary is selected
     if (input$summary_type == "Numeric Summaries") {
-      validate(
-        need(!is.null(input$num_var_summary),
-             "Please select a numeric variable to summarize.")
-      )
-      summary(rv$subset_data[[input$num_var_summary]])
+      validate(need(!is.null(input$num_var_summary),
+                    "Please select a numeric variable."))
+      
+      num_var <- input$num_var_summary
+      group_var <- input$group_var_num
+      
+      if (group_var == "None") {
+        print(summary(rv$subset_data[[num_var]]))
+      } else {
+        cat("Summary statistics for", num_var, "by", group_var, ":\n\n")
+        print(rv$subset_data |>
+                group_by(.data[[group_var]]) |>
+                summarize(across(all_of(num_var), list(
+                  Min = min,
+                  Q1 = ~quantile(.x, 0.25),
+                  Median = median,
+                  Mean = mean,
+                  Q3 = ~quantile(.x, 0.75),
+                  Max = max
+                ), .names = "{.fn}"), .groups = "drop"))
+      }
+      
+      # create contingency table if categorical summary is selected
     } else {
-      validate(
-        need(!is.null(input$cat_var),
-             "Please select a categorical variable to summarize.")
-      )
-      table(rv$subset_data[[input$cat_var]])
+      cat_var <- input$cat_var
+      second_cat <- input$second_cat
+      
+      # create one or two way contingency table depending on # of variables selected
+      if (second_cat == "None") {
+        tbl <- table(rv$subset_data[[cat_var]])
+        print(tbl)
+      } else {
+        tbl <- table(rv$subset_data[[cat_var]], rv$subset_data[[second_cat]])
+        print(tbl)
+      }
     }
   })
 }
