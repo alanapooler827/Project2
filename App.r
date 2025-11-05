@@ -6,20 +6,23 @@ library(ggplot2)
 
 source('Helpers.r')
 
-# surpress scientific notation
-options(scipen = 999)
+# suppress scientific notation, print all rows of tibble
+options(scipen = 999, tibble.print_max = Inf)
 
 # read in data set
-df <- read_csv('Data/Melbourne_housing_FULL.csv', na = ('#N/A'))
+df_raw <- read_csv('Data/Melbourne_housing_FULL.csv', na = ('#N/A'))
 
 # clean data set
-df <- df |>
+df <- df_raw |>
+  # removing missing/invalid values
   filter(!is.na(Price), BuildingArea > 0, Landsize > 0) |>
   # convert sq meters to sq ft
   mutate(
     BuildingArea = round(BuildingArea*10.7639, 2),
     Landsize = round(Landsize*10.7639, 2)
   ) |>
+  # remove building size outlier
+  filter(BuildingArea < 479155) |>
   # Create Year Sold Variable
   mutate(YearSold = year(dmy(Date))) |>
   # convert categorical variables to factors
@@ -45,17 +48,17 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       # Categorical variable selection
-      h2('Choose a Subset of the Data'),
+      h2('Select a Subset of the Data'),
       h3('Categorical Variables:'),
       selectizeInput('region', 'Region:', 
                      choices = c("All", levels(df$Regionname)),
                      selected = 'All'),
-      selectizeInput('type', 'Property Type:', 
-                     choices = c("All", levels(df$Type)),
+      selectizeInput('yearsold', 'Year Sold:', 
+                     choices = c("All", levels(df$YearSold)),
                      selected = 'All'),
       br(),
       
-      # Numeric Variable
+      # Numeric variable selection
       h3('Numeric Variables:'),
       selectizeInput('num1', '',
                  choices = numeric_vars,
@@ -67,6 +70,7 @@ ui <- fluidPage(
                      selected = numeric_vars[2]),
       uiOutput('num2_slider'),
       
+      # Button to apply filters
       actionButton('subset_btn', 'Apply Filters', class = 'btn-primary')
     ),
     
@@ -95,29 +99,39 @@ ui <- fluidPage(
                               inline = TRUE),
                  uiOutput('explore_ui'),
                  
-                 # add options for grouping
+                 # add option for grouping numeric variable summary
                  conditionalPanel(
                    "input.summary_type == 'Numeric Summaries'",
-                   selectizeInput('group_var_num', 'Group by (categorical variable):',
-                                  choices = c("None", names(df[sapply(df, is.factor)])),
-                                  selected = "None"),
-                   selectizeInput('facet_var_num', 'Facet by (categorical variable):',
-                                  choices = c("None", names(df[sapply(df, is.factor)])),
+                   selectizeInput('group_var_num', 'Group by:',
+                                  choices = c("None", cat_vars),
+                                  selected = "None")
+                 ),
+                 # add option to facet graph
+                 conditionalPanel(
+                   "input.summary_type == 'Numeric Summaries' && input.summary_tabs == 'Graphical Summary'",
+                   selectizeInput('facet_var_num', 'Facet by:',
+                                  choices = c("None", facet_vars),
                                   selected = "None")
                  ),
                  
+                 # add option to select numeric variable for categorical graph
                  conditionalPanel(
-                   "input.summary_type == 'Categorical Summaries'",
-                   selectizeInput('num_for_cat', 'Choose numeric variable (for graph):',
-                                  choices = c("None", names(df[sapply(df, is.numeric)])),
-                                  selected = "None"),
-                   selectizeInput('second_cat', 'Second categorical variable (for contingency table):',
-                                  choices = c("None", names(df[sapply(df, is.factor)])),
+                   "input.summary_type == 'Categorical Summaries' && input.summary_tabs == 'Graphical Summary'",
+                   selectizeInput('num_for_cat', 'Choose numeric variable:',
+                                  choices = c("None", numeric_vars),
+                                  selected = "None")
+                 ),
+                 # add option to select second variable for contingency table
+                 conditionalPanel(
+                   "input.summary_type == 'Categorical Summaries' && input.summary_tabs == 'Numerical Summary'",
+                   selectizeInput('second_cat', 'Choose second categorical variable:',
+                                  choices = c("None", cat_vars),
                                   selected = "None")
                  ),
                  
                  # sub tabs for graphical and numerical summaries
                  tabsetPanel(
+                   id = "summary_tabs",
                    tabPanel("Graphical Summary",
                             plotOutput('plot')),
                    tabPanel("Numerical Summary",
@@ -133,6 +147,7 @@ server <- function(input, output, session) {
   
   rv <- reactiveValues(subset_data = NULL)
   
+  # Update num1 choices when num2 changes
   observeEvent(input$num1, {
     num1 <- input$num1
     num2 <- input$num2
@@ -147,7 +162,7 @@ server <- function(input, output, session) {
     }
   })
   
-  # Update num1 choices when num2 changes
+  # Update num2 choices when num1 changes
   observeEvent(input$num2, {
     num1 <- input$num1
     num2 <- input$num2
@@ -167,7 +182,7 @@ server <- function(input, output, session) {
     req(input$num1)
     rng <- range(df[[input$num1]], na.rm = TRUE)
     sliderInput("num1_range",
-                paste("Filter", input$num1),
+                paste("Filter", names(numeric_vars)[numeric_vars == input$num1]),
                 min = rng[1], max = rng[2],
                 value = rng)
   })
@@ -177,7 +192,7 @@ server <- function(input, output, session) {
     req(input$num2)
     rng <- range(df[[input$num2]], na.rm = TRUE)
     sliderInput("num2_range",
-                paste("Filter", input$num2),
+                paste("Filter", names(numeric_vars)[numeric_vars == input$num2]),
                 min = rng[1], max = rng[2],
                 value = rng)
   })
@@ -190,8 +205,8 @@ server <- function(input, output, session) {
     if (input$region != "All") {
       data_sub <- data_sub[data_sub$Regionname == input$region, ]
     }
-    if (input$type != "All") {
-      data_sub <- data_sub[data_sub$Type == input$type, ]
+    if (input$yearsold != "All") {
+      data_sub <- data_sub[data_sub$YearSold == input$yearsold, ]
     }
     
     # update numeric variable when slider is changed
@@ -206,6 +221,7 @@ server <- function(input, output, session) {
   })
   
   # Data download tab
+  # display table
   output$data_table <- DT::renderDataTable({
     validate(
       need(!is.null(rv$subset_data), "Please subset the data and click 'Apply filters' using the sidebar.")
@@ -213,6 +229,7 @@ server <- function(input, output, session) {
     datatable(rv$subset_data, options = list(pageLength = 10))
   })
   
+  # download table
   output$download_data <- downloadHandler(
     filename = function() {"subset_data.csv"},
     content = function(file) {
@@ -246,14 +263,14 @@ server <- function(input, output, session) {
       
       p <- ggplot(rv$subset_data, aes(x = .data[[num_var]]))
       
-      # If grouped, color by category
+      # Color by group if grouping variable is selected
       if (group_var != "None") {
         p <- p + geom_histogram(aes(fill = .data[[group_var]]), position = "identity", alpha = 0.6)
       } else {
         p <- p + geom_histogram(fill = 'deepskyblue4', color = "white")
       }
       
-      # add facet wrap if faceted
+      # Add facet wrap if facet variable is selected
       if (facet_var != "None") {
         p <- p + facet_wrap(vars(.data[[facet_var]]))
       }
@@ -265,12 +282,13 @@ server <- function(input, output, session) {
       cat_var <- input$cat_var
       num_var <- input$num_for_cat
       
-      # Validate numeric variable for bar chart
+      # create bar chart if only one variable is selected
       if (num_var == "None") {
         ggplot(rv$subset_data, aes(x = .data[[cat_var]])) +
           geom_bar(fill = 'deepskyblue4') +
           coord_flip() +
           theme_minimal()
+        # create bar chart of cat var vs avg of numeric variable if selected
       } else {
         # Compute mean numeric value per category
         summary_df <- rv$subset_data |>
@@ -287,7 +305,7 @@ server <- function(input, output, session) {
     }
   })
   
-  # Numeric
+  # Numeric summaries
   output$summary <- renderPrint({
     validate(
       need(!is.null(rv$subset_data), 
@@ -305,7 +323,7 @@ server <- function(input, output, session) {
       if (group_var == "None") {
         print(summary(rv$subset_data[[num_var]]))
       } else {
-        cat("Summary statistics for", num_var, "by", group_var, ":\n\n")
+        cat("Summary statistics for", num_var, "by", group_var, ":\n")
         print(rv$subset_data |>
                 group_by(.data[[group_var]]) |>
                 summarize(across(all_of(num_var), list(
@@ -315,7 +333,7 @@ server <- function(input, output, session) {
                   Mean = mean,
                   Q3 = ~quantile(.x, 0.75),
                   Max = max
-                ), .names = "{.fn}"), .groups = "drop"))
+                ), .names = "{.fn}")))
       }
       
       # create contingency table if categorical summary is selected
