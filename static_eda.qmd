@@ -1,6 +1,7 @@
 ---
 title: "Melbourne Housing EDA"
 author: "Alana Pooler"
+date: "10-21-2025"
 format: html
 editor: visual
 ---
@@ -15,7 +16,7 @@ library(ggplot2)
 library(tidyverse)
 library(RColorBrewer)
 
-# surpress scientific notation
+# supress scientific notation
 options(scipen = 999)
 ```
 
