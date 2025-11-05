@@ -21,8 +21,6 @@ df <- df_raw |>
     BuildingArea = round(BuildingArea*10.7639, 2),
     Landsize = round(Landsize*10.7639, 2)
   ) |>
-  # remove building size outlier
-  filter(BuildingArea < 479155) |>
   # Create Year Sold Variable
   mutate(YearSold = year(dmy(Date))) |>
   # convert categorical variables to factors
