@@ -25,7 +25,7 @@ options(scipen = 999)
 Read in and view data
 
 ```{r}
-df <- read_csv('Data/Melbourne_housing_FULL.csv', na = ('#N/A'))
+df <- read_csv('shiny_app/Data/Melbourne_housing_FULL.csv', na = ('#N/A'))
 head(df)
 ```
 
