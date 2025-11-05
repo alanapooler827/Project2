@@ -3,6 +3,7 @@ library(shinyalert)
 library(tidyverse)
 library(DT)
 library(ggplot2)
+library(rsconnect)
 
 source('Helpers.r')
 

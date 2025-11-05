@@ -1,0 +1,12 @@
+name: Project2_Shiny_App
+title: Project2_Shiny_App
+username: alanapooler1
+account: alanapooler1
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 15980976
+bundleId: 11137394
+url: https://alanapooler1.shinyapps.io/Project2_Shiny_App/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
